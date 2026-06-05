@@ -52,6 +52,14 @@ with col_input:
         label_visibility="collapsed",
     )
 
+    uploaded_diagrams = st.file_uploader(
+        "Architecture diagrams (optional)",
+        type=["png", "jpg", "jpeg", "gif", "webp"],
+        accept_multiple_files=True,
+        help="Upload architecture or data-flow diagrams to enrich the threat model. "
+             "Requires a vision-capable model.",
+    )
+
     run_btn = st.button("🛡️  Threat Model", use_container_width=True)
 
     st.markdown("""
@@ -73,7 +81,7 @@ with col_output:
         else:
             with st.spinner(f"Analysing threats via {s['provider_name']} · {s['model']}…"):
                 try:
-                    result = run_threat_model(user_input.strip())
+                    result = run_threat_model(user_input.strip(), uploaded_diagrams)
                     st.session_state["tm_result"] = result
                     st.session_state["tm_meta"]   = f"{s['provider_name']} · {s['model']}"
                 except Exception as e:

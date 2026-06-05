@@ -1,6 +1,7 @@
 """Shared constants, CSS, and helpers for TM-AI."""
 import os
 import json
+import base64
 import streamlit as st
 from litellm import completion
 
@@ -336,17 +337,31 @@ def build_litellm_model_string(provider_cfg: dict, model: str, azure_deployment:
         return f"azure/{azure_deployment or model}"
     return f"{provider_cfg['litellm_prefix']}{model}"
 
-def run_threat_model(description: str) -> dict:
+def run_threat_model(description: str, images=None) -> dict:
     s            = get_settings()
     provider_cfg = PROVIDERS[s["provider_name"]]
     model_str    = build_litellm_model_string(provider_cfg, s["model"], s["azure_deployment"])
+
+    # Build the user message. When diagrams are supplied, send a multimodal
+    # content list (text + images) that vision-capable models understand.
+    if images:
+        user_content = [{"type": "text", "text": description}]
+        for img in images:
+            b64  = base64.b64encode(img.getvalue()).decode()
+            mime = getattr(img, "type", None) or "image/png"
+            user_content.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:{mime};base64,{b64}"},
+            })
+    else:
+        user_content = description
 
     kwargs: dict = {
         "model":      model_str,
         "max_tokens": 2500,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user",   "content": description},
+            {"role": "user",   "content": user_content},
         ],
     }
     if s["api_key"]:
