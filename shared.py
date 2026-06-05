@@ -305,11 +305,7 @@ def render_nav(active: str):
         """, unsafe_allow_html=True)
     with col_links:
         st.markdown("<div style='padding-top:1.6rem; display:flex; gap:6px;'>", unsafe_allow_html=True)
-        link_col1, link_col2 = st.columns(2)
-        with link_col1:
-            st.page_link("Home.py", label="🛡️ Threat Model")
-        with link_col2:
-            st.page_link("pages/1_Settings.py", label="⚙️ Settings")
+        st.page_link("pages/1_Settings.py", label="⚙️ Settings")
         st.markdown("</div>", unsafe_allow_html=True)
     st.markdown('<div class="tm-divider"></div>', unsafe_allow_html=True)
 

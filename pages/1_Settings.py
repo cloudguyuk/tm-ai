@@ -89,23 +89,8 @@ with col_form:
             value=s["azure_api_version"] or os.environ.get("AZURE_API_VERSION", "2024-02-01"),
             key="inp_azure_version",
         )
-        # Auto-fill deployment name when model changes, unless user has manually set it
-        saved_deployment = s["azure_deployment"]
-        prev_model = st.session_state.get("_prev_azure_model", model_choice)
-        model_changed = prev_model != model_choice
-        if model_changed or not saved_deployment:
-            default_deployment = model_choice
-        else:
-            default_deployment = saved_deployment
-        st.session_state["_prev_azure_model"] = model_choice
-
-        azure_deployment = st.text_input(
-            "Deployment Name",
-            value=default_deployment,
-            placeholder="my-gpt4o-deployment",
-            key="inp_azure_deployment",
-            help="Your Azure OpenAI deployment name. Auto-filled from the selected model.",
-        )
+        # Deployment name is taken from the selected model.
+        azure_deployment = model_choice
         st.markdown("<br>", unsafe_allow_html=True)
     else:
         azure_api_base    = ""
