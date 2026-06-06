@@ -15,7 +15,7 @@ render_nav("settings")
 
 # ── Back button ───────────────────────────────────────────────────────────────
 if st.button("← Back to Threat Model", key="go_home"):
-    st.switch_page("Home.py")
+    st.switch_page("home.py")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -89,8 +89,9 @@ with col_form:
             value=s["azure_api_version"] or os.environ.get("AZURE_API_VERSION", "2024-02-01"),
             key="inp_azure_version",
         )
-        # Deployment name is taken from the selected model.
-        azure_deployment = model_choice
+        # Deployment name is taken from the environment; if unset it falls
+        # back to the selected model name in build_litellm_model_string.
+        azure_deployment = os.environ.get("AZURE_API_DEPLOYMENT", "")
         st.markdown("<br>", unsafe_allow_html=True)
     else:
         azure_api_base    = ""
