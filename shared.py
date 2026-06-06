@@ -3,7 +3,11 @@ import os
 import json
 import base64
 import streamlit as st
+from dotenv import load_dotenv
 from litellm import completion
+
+# Load variables from a local .env file (if present) into the environment.
+load_dotenv()
 
 # ── Provider / model definitions ─────────────────────────────────────────────
 PROVIDERS = {
@@ -20,17 +24,11 @@ PROVIDERS = {
     },
     "Azure OpenAI": {
         "models": [
-            "gpt-5.5",
             "gpt-5.4",
             "gpt-5.4-mini",
             "gpt-5.1",
-            "gpt-5",
             "gpt-5-mini",
-            "gpt-4.1",
             "gpt-4.1-mini",
-            "gpt-4.1-nano",
-            "gpt-4o",
-            "gpt-4o-mini",
         ],
         "litellm_prefix": "azure/",
         "key_label": "AZURE_OPENAI_API_KEY",
@@ -305,19 +303,27 @@ def render_nav(active: str):
         """, unsafe_allow_html=True)
     with col_links:
         st.markdown("<div style='padding-top:1.6rem; display:flex; gap:6px;'>", unsafe_allow_html=True)
-        st.page_link("pages/1_Settings.py", label="⚙️ Settings")
+        st.page_link("pages/settings.py", label="⚙️ Settings")
         st.markdown("</div>", unsafe_allow_html=True)
     st.markdown('<div class="tm-divider"></div>', unsafe_allow_html=True)
 
 def get_settings() -> dict:
-    """Return current settings from session_state with safe defaults."""
+    """Return current settings.
+
+    Values entered in the UI (session_state) take precedence; anything not set
+    there falls back to the corresponding environment variable. This lets the
+    Azure OpenAI API key, endpoint, deployment, and API version be supplied
+    entirely from the environment (e.g. a .env file) with no manual entry.
+    """
+    provider_name = st.session_state.get("cfg_provider", "Azure OpenAI")
+    key_env       = PROVIDERS[provider_name]["key_env"]
     return {
-        "provider_name": st.session_state.get("cfg_provider", "Anthropic (Claude)"),
-        "model":         st.session_state.get("cfg_model",    "claude-sonnet-4-20250514"),
-        "api_key":       st.session_state.get("cfg_api_key",  ""),
-        "azure_api_base":    st.session_state.get("cfg_azure_api_base",    ""),
-        "azure_api_version": st.session_state.get("cfg_azure_api_version", "2024-02-01"),
-        "azure_deployment":  st.session_state.get("cfg_azure_deployment",  ""),
+        "provider_name": provider_name,
+        "model":         st.session_state.get("cfg_model", PROVIDERS[provider_name]["models"][0]),
+        "api_key":       st.session_state.get("cfg_api_key")  or os.environ.get(key_env, ""),
+        "azure_api_base":    st.session_state.get("cfg_azure_api_base")    or os.environ.get("AZURE_API_BASE", ""),
+        "azure_api_version": st.session_state.get("cfg_azure_api_version") or os.environ.get("AZURE_API_VERSION", "2024-02-01"),
+        "azure_deployment":  st.session_state.get("cfg_azure_deployment")  or os.environ.get("AZURE_API_DEPLOYMENT", ""),
     }
 
 def settings_complete() -> bool:

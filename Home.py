@@ -30,7 +30,7 @@ else:
     <div style="background:rgba(255,140,0,0.05); border:1px solid rgba(255,140,0,0.15);
                 border-radius:6px; padding:0.7rem 1.2rem; margin-bottom:1.4rem;
                 font-family:'Space Mono',monospace; font-size:0.75rem; color:#ff8c00;">
-        ✓ &nbsp; {s["provider_name"]} &nbsp;·&nbsp; {s["model"]}
+        ✓ Configured Provider / Model : {s["provider_name"]} / {s["model"]}
     </div>
     """, unsafe_allow_html=True)
 
@@ -98,7 +98,7 @@ with col_output:
 
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("📋  Generate Summary", use_container_width=True, key="go_summary"):
-            st.switch_page("pages/2_Summary.py")
+            st.switch_page("pages/summary.py")
     else:
         st.markdown("""
         <div style="color:#334155; font-family:'Space Mono',monospace; font-size:0.82rem;

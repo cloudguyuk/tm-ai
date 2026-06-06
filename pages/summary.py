@@ -16,7 +16,7 @@ render_nav("home")
 
 # ── Back button ───────────────────────────────────────────────────────────────
 if st.button("← Back to Threat Model", key="go_home"):
-    st.switch_page("Home.py")
+    st.switch_page("home.py")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
