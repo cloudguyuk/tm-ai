@@ -2,4 +2,4 @@
 .env
 
 # Python bytecode cache
-__pycache__/
+/__pycache__
