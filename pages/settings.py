@@ -60,13 +60,30 @@ with col_form:
     </div>
     """, unsafe_allow_html=True)
 
-    api_key = st.text_input(
+    # Only pre-fill the field with a key the user explicitly entered/saved in
+    # this session. Keys sourced from the environment are never written into the
+    # input value (so they aren't sent to the browser / rendered in the DOM).
+    env_key_present = bool(os.environ.get(provider_cfg["key_env"]))
+    saved_key       = st.session_state.get("cfg_api_key", "")
+
+    api_key_input = st.text_input(
         provider_cfg["key_label"],
-        value=s["api_key"] or os.environ.get(provider_cfg["key_env"], ""),
+        value=saved_key,
         type="password",
-        placeholder=f"Enter your {provider_cfg['key_label']}…",
+        placeholder=(
+            f"Detected from {provider_cfg['key_env']} — leave blank to use it"
+            if env_key_present
+            else f"Enter your {provider_cfg['key_label']}…"
+        ),
         key="inp_api_key",
     )
+
+    # Fall back to the environment-provided key when the user leaves it blank,
+    # without ever exposing that value in the input field.
+    api_key = api_key_input or os.environ.get(provider_cfg["key_env"], "")
+
+    if env_key_present and not api_key_input:
+        st.caption(f"🔑 Using {provider_cfg['key_label']} from the environment.")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -104,7 +121,7 @@ with col_form:
         if st.button("💾  Save Settings", use_container_width=True, key="btn_save"):
             st.session_state["cfg_provider"]          = provider_name
             st.session_state["cfg_model"]             = model_choice
-            st.session_state["cfg_api_key"]           = api_key
+            st.session_state["cfg_api_key"]           = api_key_input
             st.session_state["cfg_azure_api_base"]    = azure_api_base
             st.session_state["cfg_azure_api_version"] = azure_api_version
             st.session_state["cfg_azure_deployment"]  = azure_deployment
