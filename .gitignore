@@ -1,5 +1,6 @@
-# Environment variables
+# Excluded files
 .env
 
-# Python bytecode cache
+# Excluded directories
 /__pycache__
+/.devcontainer
