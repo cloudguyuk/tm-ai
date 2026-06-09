@@ -38,22 +38,22 @@ threats = data.get("threats", [])
 # ── Page header ───────────────────────────────────────────────────────────────
 st.markdown("""
 <div style="font-family:'Syne',sans-serif; font-size:1.5rem; font-weight:800;
-            color:#e2e8f0; margin-bottom:0.2rem;">Threat Model Summary</div>
+            color:var(--text); margin-bottom:0.2rem;">Threat Model Summary</div>
 """, unsafe_allow_html=True)
 
 if meta:
     st.markdown(f"""
     <div style="font-family:'Space Mono',monospace; font-size:0.68rem;
-                color:#334155; margin-bottom:1.2rem;">Generated via {meta}</div>
+                color:var(--text-muted); margin-bottom:1.2rem;">Generated via {meta}</div>
     """, unsafe_allow_html=True)
 
 # ── System summary banner ─────────────────────────────────────────────────────
 summary_text = data.get("summary", "")
 if summary_text:
     st.markdown(f"""
-    <div style="background:#0f1318; border:1px solid #1e2a38; border-left:3px solid #ff8c00;
-                border-radius:6px; padding:1rem 1.4rem; margin-bottom:1.6rem;
-                font-family:'Space Mono',monospace; font-size:0.84rem; color:#94a3b8; line-height:1.7;">
+    <div style="background:var(--card); backdrop-filter:blur(8px); border:1px solid var(--border); border-left:3px solid #ff8c00;
+                border-radius:10px; padding:1rem 1.4rem; margin-bottom:1.6rem; box-shadow:var(--shadow);
+                font-family:'Space Mono',monospace; font-size:0.84rem; color:var(--text-soft); line-height:1.7;">
         <div style="font-family:'Syne',sans-serif; font-size:0.7rem; font-weight:600;
                     letter-spacing:0.18em; text-transform:uppercase; color:#ff8c00;
                     margin-bottom:0.5rem;">System Summary</div>
@@ -100,7 +100,7 @@ for sev in ["critical", "high", "medium", "low"]:
 st.markdown(f"""
 <div style="margin-bottom:1.4rem;">
     <span style="font-family:'Space Mono',monospace; font-size:0.72rem;
-                 color:#64748b; letter-spacing:0.1em; text-transform:uppercase;
+                 color:var(--text-muted); letter-spacing:0.1em; text-transform:uppercase;
                  margin-right:0.8rem;">{len(threats)} threat(s)</span>
     {chip_html}
 </div>

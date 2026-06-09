@@ -35,14 +35,21 @@ PROVIDERS = {
         "key_env":   "AZURE_API_KEY",
         "is_azure":  True,
     },
-    "OpenAI": {
-        "models": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "o1-preview"],
-        "litellm_prefix": "",
-        "key_label": "OPENAI_API_KEY",
-        "key_env":   "OPENAI_API_KEY",
-        "is_azure":  False,
-    },
 }
+
+# Environment variable that forces Azure authentication to use the container
+# app's managed identity instead of an API key. When set to a truthy value the
+# API-key entry is disabled/ignored entirely (see get_settings / the UI).
+AZURE_MI_ENV = "AZURE_USE_MANAGED_IDENTITY"
+
+# OAuth scope used when requesting an Azure AD token for Azure OpenAI.
+AZURE_OPENAI_SCOPE = "https://cognitiveservices.azure.com/.default"
+
+
+def env_truthy(name: str) -> bool:
+    """Return True when an environment variable is set to a truthy value."""
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
 
 SYSTEM_PROMPT = """You are an expert security architect and threat modeller with deep knowledge of STRIDE, MITRE ATT&CK, and OWASP methodologies.
 
@@ -63,12 +70,68 @@ When given a system description, produce a comprehensive threat model as a JSON 
 
 Return ONLY valid JSON. No markdown fences, no preamble."""
 
+# Session-state key holding a user-edited copy of the system prompt. Edits made
+# on the Prompt page live here for the duration of the session only — they are
+# never written to disk, so the default SYSTEM_PROMPT is restored on restart.
+PROMPT_SESSION_KEY = "cfg_system_prompt"
+
+
+def get_system_prompt() -> str:
+    """Return the active threat-model system prompt.
+
+    A prompt edited in this session (stored in session_state) takes precedence;
+    otherwise the built-in default SYSTEM_PROMPT is used.
+    """
+    return st.session_state.get(PROMPT_SESSION_KEY) or SYSTEM_PROMPT
+
 SEVERITY_CSS = {
     "critical": "severity-critical",
     "high":     "severity-high",
     "medium":   "severity-medium",
     "low":      "severity-low",
 }
+
+# ── Theme tokens ──────────────────────────────────────────────────────────────
+# Each theme defines the colour variables consumed (via var(--token)) by BASE_CSS.
+# The brand accents (orange / cyan / red) are intentionally shared across themes.
+THEME_KEY = "ui_theme"  # session_state key: "dark" | "light"
+
+THEMES = {
+    "dark": """
+    --bg: #0a0c10;
+    --text: #f1f5f9;
+    --text-soft: #c0cdda;
+    --text-muted: #9fb1c4;
+    --surface: #0f1318;
+    --input-text: #c9d8e8;
+    --card: rgba(20,26,34,0.7);
+    --card-2: rgba(25,31,40,0.65);
+    --border: #28384a;
+    --shadow: 0 8px 24px rgba(0,0,0,0.35);
+    --glow:
+        radial-gradient(1200px 600px at 85% -10%, rgba(255,140,0,0.10), transparent 60%),
+        radial-gradient(1000px 500px at 0% 110%, rgba(0,200,255,0.06), transparent 55%);
+    """,
+    "light": """
+    --bg: #eef2f7;
+    --text: #0f1722;
+    --text-soft: #33424f;
+    --text-muted: #5a6b7d;
+    --surface: #ffffff;
+    --input-text: #1a2530;
+    --card: rgba(255,255,255,0.82);
+    --card-2: rgba(255,255,255,0.72);
+    --border: #d4dde6;
+    --shadow: 0 10px 30px rgba(15,23,34,0.10);
+    --glow:
+        radial-gradient(1200px 600px at 85% -10%, rgba(255,140,0,0.13), transparent 60%),
+        radial-gradient(1000px 500px at 0% 110%, rgba(0,200,255,0.10), transparent 55%);
+    """,
+}
+
+def current_theme() -> str:
+    """Return the active theme name, defaulting to dark."""
+    return "light" if st.session_state.get(THEME_KEY) == "light" else "dark"
 
 # ── Shared CSS ────────────────────────────────────────────────────────────────
 BASE_CSS = """
@@ -77,16 +140,31 @@ BASE_CSS = """
 
 html, body, [class*="css"] {
     font-family: 'Syne', sans-serif;
-    background-color: #0a0c10;
-    color: #e2e8f0;
+    background-color: var(--bg);
+    color: var(--text);
 }
 .stApp {
-    background-color: #0a0c10;
-    background-image:
-        linear-gradient(rgba(255,140,0,0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,140,0,0.04) 1px, transparent 1px);
-    background-size: 40px 40px;
+    background-color: var(--bg);
+    background-image: var(--glow);
+    background-attachment: fixed;
 }
+
+/* Force theme text colour onto Streamlit's native text elements (these
+   otherwise inherit Streamlit's own base theme and break in light mode). */
+.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
+.stApp p, .stApp li, .stApp label,
+[data-testid="stMarkdownContainer"],
+[data-testid="stWidgetLabel"] { color: var(--text); }
+
+textarea::placeholder, input::placeholder { color: var(--text-muted) !important; opacity: 1 !important; }
+
+/* File uploader dropzone */
+[data-testid="stFileUploaderDropzone"] {
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-soft) !important;
+}
+[data-testid="stFileUploaderDropzone"] * { color: var(--text-soft) !important; }
 
 /* hide default sidebar nav */
 [data-testid="stSidebarNav"] { display: none !important; }
@@ -105,7 +183,7 @@ html, body, [class*="css"] {
 .tm-logo span { color: #ff4b6e; }
 .tm-tagline {
     font-size: 0.82rem;
-    color: #64748b;
+    color: var(--text-muted);
     letter-spacing: 0.15em;
     text-transform: uppercase;
     margin-top: 4px;
@@ -130,9 +208,9 @@ html, body, [class*="css"] {
     text-transform: uppercase !important;
     padding: 5px 14px !important;
     border-radius: 4px !important;
-    border: 1px solid #1e2a38 !important;
+    border: 1px solid var(--border) !important;
     background: transparent !important;
-    color: #64748b !important;
+    color: var(--text-muted) !important;
     text-decoration: none !important;
 }
 [data-testid="stPageLink-active"] a {
@@ -164,8 +242,8 @@ html, body, [class*="css"] {
 .stButton.secondary > button,
 button[kind="secondary"] {
     background: transparent !important;
-    border: 1px solid #1e2a38 !important;
-    color: #64748b !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-muted) !important;
     box-shadow: none !important;
 }
 
@@ -173,9 +251,9 @@ button[kind="secondary"] {
 textarea {
     font-family: 'Space Mono', monospace !important;
     font-size: 0.88rem !important;
-    background-color: #0f1318 !important;
-    color: #c9d8e8 !important;
-    border: 1px solid #1e2a38 !important;
+    background-color: var(--surface) !important;
+    color: var(--input-text) !important;
+    border: 1px solid var(--border) !important;
     border-radius: 6px !important;
     caret-color: #ff8c00 !important;
 }
@@ -184,9 +262,9 @@ textarea:focus { border-color: #ff8c00 !important; box-shadow: 0 0 0 2px rgba(25
 /* ── Inputs & selects ── */
 .stSelectbox > div > div,
 .stTextInput > div > div > input {
-    background-color: #0f1318 !important;
-    border-color: #1e2a38 !important;
-    color: #c9d8e8 !important;
+    background-color: var(--surface) !important;
+    border-color: var(--border) !important;
+    color: var(--input-text) !important;
     font-family: 'Space Mono', monospace !important;
     font-size: 0.85rem !important;
 }
@@ -196,20 +274,22 @@ textarea:focus { border-color: #ff8c00 !important; box-shadow: 0 0 0 2px rgba(25
     font-size: 0.7rem !important;
     letter-spacing: 0.12em !important;
     text-transform: uppercase !important;
-    color: #64748b !important;
+    color: var(--text-muted) !important;
 }
 
 /* ── Results ── */
 .result-block {
-    background: #0f1318;
-    border: 1px solid #1e2a38;
+    background: var(--card);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
     border-left: 3px solid #ff8c00;
-    border-radius: 6px;
+    border-radius: 10px;
     padding: 1.4rem 1.6rem;
     margin-bottom: 1rem;
     font-family: 'Space Mono', monospace;
     font-size: 0.84rem;
     line-height: 1.7;
+    box-shadow: var(--shadow);
 }
 .result-title {
     font-family: 'Syne', sans-serif;
@@ -221,13 +301,15 @@ textarea:focus { border-color: #ff8c00 !important; box-shadow: 0 0 0 2px rgba(25
     margin-bottom: 0.6rem;
 }
 .threat-item {
-    background: #13181f;
-    border: 1px solid #1e2a38;
-    border-radius: 4px;
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
     padding: 1rem 1.2rem;
     margin-bottom: 0.75rem;
+    transition: border-color 0.2s ease, transform 0.2s ease;
 }
-.threat-title { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 1rem; color: #ff4b6e; margin-bottom: 0.3rem; }
+.threat-item:hover { border-color: rgba(255,140,0,0.35); transform: translateY(-1px); }
+.threat-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.05rem; color: #ff5c7c; margin-bottom: 0.3rem; }
 .threat-meta {
     display: inline-block;
     font-size: 0.7rem;
@@ -241,17 +323,19 @@ textarea:focus { border-color: #ff8c00 !important; box-shadow: 0 0 0 2px rgba(25
 .severity-high     { background: rgba(255,150,50,0.18);   color: #ff9632; border: 1px solid rgba(255,150,50,0.3); }
 .severity-medium   { background: rgba(255,210,50,0.18);   color: #ffd232; border: 1px solid rgba(255,210,50,0.3); }
 .severity-low      { background: rgba(255,140,0,0.12);    color: #ff8c00; border: 1px solid rgba(255,140,0,0.2); }
-.threat-desc { color: #94a3b8; font-size: 0.83rem; line-height: 1.6; margin-top: 0.4rem; }
-.mitigation { color: #64748b; font-size: 0.78rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #1e2a38; }
+.threat-desc { color: var(--text-soft); font-size: 0.83rem; line-height: 1.6; margin-top: 0.4rem; }
+.mitigation { color: var(--text-muted); font-size: 0.78rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
 .mitigation strong { color: #00c8ff; }
 
 /* ── Settings cards ── */
 .settings-card {
-    background: #0f1318;
-    border: 1px solid #1e2a38;
-    border-radius: 8px;
+    background: var(--card);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
     padding: 1.6rem 1.8rem;
     margin-bottom: 1.2rem;
+    box-shadow: var(--shadow);
 }
 .settings-card-title {
     font-family: 'Space Mono', monospace;
@@ -261,7 +345,7 @@ textarea:focus { border-color: #ff8c00 !important; box-shadow: 0 0 0 2px rgba(25
     color: #ff8c00;
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid #1e2a38;
+    border-bottom: 1px solid var(--border);
 }
 .config-badge {
     display: inline-flex;
@@ -283,13 +367,21 @@ textarea:focus { border-color: #ff8c00 !important; box-shadow: 0 0 0 2px rgba(25
 }
 
 .stSpinner > div { border-top-color: #ff8c00 !important; }
-.stAlert { background: #0f1318 !important; border: 1px solid #1e2a38 !important; color: #94a3b8 !important; }
-.stTextArea label { font-family: 'Space Mono', monospace !important; font-size: 0.75rem !important; letter-spacing: 0.1em !important; color: #64748b !important; text-transform: uppercase !important; }
+.stAlert { background: var(--surface) !important; border: 1px solid var(--border) !important; color: var(--text-soft) !important; }
+.stTextArea label { font-family: 'Space Mono', monospace !important; font-size: 0.75rem !important; letter-spacing: 0.1em !important; color: var(--text-muted) !important; text-transform: uppercase !important; }
 </style>
 """
 
 def inject_css():
+    """Inject the active theme's variables followed by the shared stylesheet."""
+    theme_vars = THEMES.get(current_theme(), THEMES["dark"])
+    st.markdown(f"<style>:root {{{theme_vars}}}</style>", unsafe_allow_html=True)
     st.markdown(BASE_CSS, unsafe_allow_html=True)
+
+def _sync_theme():
+    """Mirror the toggle's state into THEME_KEY (runs before the script reruns,
+    so inject_css picks up the new theme on the same interaction)."""
+    st.session_state[THEME_KEY] = "light" if st.session_state.get("_theme_toggle") else "dark"
 
 def render_nav(active: str):
     """Render the top nav bar. active = 'home' | 'settings'"""
@@ -303,7 +395,14 @@ def render_nav(active: str):
         """, unsafe_allow_html=True)
     with col_links:
         st.markdown("<div style='padding-top:1.6rem; display:flex; gap:6px;'>", unsafe_allow_html=True)
+        st.page_link("pages/prompt.py", label="📝 Prompt")
         st.page_link("pages/settings.py", label="⚙️ Settings")
+        st.toggle(
+            "☀️ Light mode",
+            key="_theme_toggle",
+            on_change=_sync_theme,
+            help="Switch between dark and light mode",
+        )
         st.markdown("</div>", unsafe_allow_html=True)
     st.markdown('<div class="tm-divider"></div>', unsafe_allow_html=True)
 
@@ -317,10 +416,23 @@ def get_settings() -> dict:
     """
     provider_name = st.session_state.get("cfg_provider", "Azure OpenAI")
     key_env       = PROVIDERS[provider_name]["key_env"]
+
+    # Managed identity can be forced from the environment (which overrides any
+    # API-key configuration) or toggled in the UI for the current session.
+    mi_forced = env_truthy(AZURE_MI_ENV)
+    use_managed_identity = mi_forced or bool(st.session_state.get("cfg_azure_use_mi", False))
+
+    # When managed identity is in use, the API key is ignored entirely.
+    api_key = "" if use_managed_identity else (
+        st.session_state.get("cfg_api_key") or os.environ.get(key_env, "")
+    )
+
     return {
         "provider_name": provider_name,
         "model":         st.session_state.get("cfg_model", PROVIDERS[provider_name]["models"][0]),
-        "api_key":       st.session_state.get("cfg_api_key")  or os.environ.get(key_env, ""),
+        "api_key":       api_key,
+        "azure_use_managed_identity": use_managed_identity,
+        "azure_mi_forced":            mi_forced,
         "azure_api_base":    st.session_state.get("cfg_azure_api_base")    or os.environ.get("AZURE_API_BASE", ""),
         "azure_api_version": st.session_state.get("cfg_azure_api_version") or os.environ.get("AZURE_API_VERSION", "2024-02-01"),
         "azure_deployment":  st.session_state.get("cfg_azure_deployment")  or os.environ.get("AZURE_API_DEPLOYMENT", ""),
@@ -328,9 +440,14 @@ def get_settings() -> dict:
 
 def settings_complete() -> bool:
     s = get_settings()
+    is_azure = PROVIDERS[s["provider_name"]]["is_azure"]
+    # Azure managed identity authenticates without an API key; it still needs
+    # the endpoint. All other paths require a key.
+    if is_azure and s["azure_use_managed_identity"]:
+        return bool(s["azure_api_base"])
     if not s["api_key"]:
         return False
-    if PROVIDERS[s["provider_name"]]["is_azure"] and not s["azure_api_base"]:
+    if is_azure and not s["azure_api_base"]:
         return False
     return True
 
@@ -338,6 +455,27 @@ def build_litellm_model_string(provider_cfg: dict, model: str, azure_deployment:
     if provider_cfg["is_azure"]:
         return f"azure/{azure_deployment or model}"
     return f"{provider_cfg['litellm_prefix']}{model}"
+
+def _azure_managed_identity_token_provider():
+    """Build a bearer-token provider backed by the host's managed identity.
+
+    Uses azure.identity's DefaultAzureCredential, which transparently picks up
+    the managed identity assigned to the Azure Container App (and falls back to
+    other credential sources for local development). An optional
+    AZURE_CLIENT_ID selects a specific user-assigned identity.
+    """
+    try:
+        from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+    except ImportError as exc:  # pragma: no cover - surfaced to the user in UI
+        raise RuntimeError(
+            "Azure managed identity requires the 'azure-identity' package. "
+            "Add it to requirements.txt and reinstall."
+        ) from exc
+
+    client_id = os.environ.get("AZURE_CLIENT_ID") or None
+    credential = DefaultAzureCredential(managed_identity_client_id=client_id)
+    return get_bearer_token_provider(credential, AZURE_OPENAI_SCOPE)
+
 
 def run_threat_model(description: str, images=None) -> dict:
     s            = get_settings()
@@ -362,12 +500,18 @@ def run_threat_model(description: str, images=None) -> dict:
         "model":      model_str,
         "max_tokens": 2500,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": get_system_prompt()},
             {"role": "user",   "content": user_content},
         ],
     }
-    if s["api_key"]:
+    if provider_cfg["is_azure"] and s["azure_use_managed_identity"]:
+        # Authenticate with the container app's managed identity. A bearer-token
+        # provider is passed to LiteLLM/the Azure SDK so tokens are fetched and
+        # refreshed automatically — no API key is sent.
+        kwargs["azure_ad_token_provider"] = _azure_managed_identity_token_provider()
+    elif s["api_key"]:
         kwargs["api_key"] = s["api_key"]
+
     if provider_cfg["is_azure"]:
         if s["azure_api_base"]:
             kwargs["api_base"] = s["azure_api_base"]
@@ -392,7 +536,7 @@ def render_threat_results(data: dict):
 
     threats = data.get("threats", [])
     st.markdown(f"""
-    <div style="font-family:'Space Mono',monospace; font-size:0.72rem; color:#64748b;
+    <div style="font-family:'Space Mono',monospace; font-size:0.72rem; color:var(--text-muted);
                 letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.8rem;">
         {len(threats)} threat(s) identified
     </div>
@@ -405,7 +549,7 @@ def render_threat_results(data: dict):
         <div class="threat-item">
             <div class="threat-title">{t.get("id","")}&nbsp; {t.get("title","")}</div>
             <span class="threat-meta {sev_class}">{t.get("severity","")}</span>
-            <span class="threat-meta" style="background:rgba(100,116,139,0.15);color:#64748b;border:1px solid rgba(100,116,139,0.2);">{t.get("category","")}</span>
+            <span class="threat-meta" style="background:rgba(100,116,139,0.15);color:var(--text-muted);border:1px solid rgba(100,116,139,0.2);">{t.get("category","")}</span>
             <div class="threat-desc">{t.get("description","")}</div>
             <div class="mitigation"><strong>Mitigation:</strong> {t.get("mitigation","")}</div>
         </div>

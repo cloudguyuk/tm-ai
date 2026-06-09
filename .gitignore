@@ -4,3 +4,5 @@
 # Excluded directories
 /__pycache__
 /.devcontainer
+/.claude
+/pages/__pycache__

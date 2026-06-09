@@ -103,7 +103,7 @@ with col_output:
         st.markdown("""
         <div style="color:#334155; font-family:'Space Mono',monospace; font-size:0.82rem;
                     line-height:1.9; padding-top:0.5rem;">
-            Configure your provider in <strong style="color:#64748b;">⚙️ Settings</strong>,
+            Configure your provider in <strong style="color:var(--text-muted);">⚙️ Settings</strong>,
             describe your<br>system on the left, then click
             <strong style="color:#ff8c00;">Threat Model</strong>.<br><br>
             Results will include:<br>
