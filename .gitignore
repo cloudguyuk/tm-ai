@@ -1,5 +1,7 @@
 # Excluded files
 .env
+temp.ps1
+temp.sh
 
 # Excluded directories
 /__pycache__
